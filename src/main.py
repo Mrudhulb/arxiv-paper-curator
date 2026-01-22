@@ -118,5 +118,13 @@ app.include_router(stream_router, prefix="/api/v1")  # Streaming RAG responses
 app.include_router(agentic_ask.router)  # Agentic RAG with intelligent retrieval
 
 
+@app.get("/", include_in_schema=False)
+async def root():
+    """Redirect to docs."""
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url="/docs")
+
+
 if __name__ == "__main__":
     uvicorn.run(app, port=8000, host="0.0.0.0")

@@ -5,6 +5,9 @@ services:
     container_name: rag-api
     ports:
       - "8000:8000"
+    volumes:
+      - ./src:/app/src
+      - ./.env:/app/.env
     depends_on:
       postgres:
         condition: service_healthy
@@ -13,7 +16,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')\""]
+      test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')\"" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -26,7 +29,7 @@ services:
       - OPENSEARCH__HOST=http://opensearch:9200
       - OLLAMA_HOST=http://ollama:11434
       - POSTGRES_DATABASE_URL=postgresql+psycopg2://rag_user:rag_password@postgres:5432/rag_db
-      - LANGFUSE_HOST=http://langfuse-web:3000 
+      - LANGFUSE_HOST=http://langfuse-web:3000
       - LANGFUSE_DEBUG=true
       - REDIS__HOST=redis
     networks:
@@ -41,7 +44,7 @@ services:
       - redis_data:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -68,7 +71,7 @@ services:
     volumes:
       - opensearch_data:/usr/share/opensearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -86,9 +89,10 @@ services:
       - OPENSEARCH_HOSTS=http://opensearch:9200
       - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
     depends_on:
-      - opensearch
+      opensearch:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -97,7 +101,7 @@ services:
       - rag-network
 
   airflow:
-    build: 
+    build:
       context: ./airflow
       dockerfile: Dockerfile
     container_name: rag-airflow
@@ -126,7 +130,7 @@ services:
       - "8080:8080"
     # Command handled by entrypoint.sh
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -142,7 +146,7 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     healthcheck:
-      test: ["CMD", "ollama", "list"]
+      test: [ "CMD", "ollama", "list" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -164,7 +168,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rag_user -d rag_db"]
+      test: [ "CMD-SHELL", "pg_isready -U rag_user -d rag_db" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -185,7 +189,7 @@ services:
     volumes:
       - clickhouse_data:/var/lib/clickhouse
     healthcheck:
-      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      test: [ "CMD", "clickhouse-client", "--query", "SELECT 1" ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -234,7 +238,7 @@ services:
       LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
       LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_MINIO_ACCESS_KEY}
       LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_SECRET_KEY}
-      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://localhost:9090
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://langfuse-minio:9000
       LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
       LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
       REDIS_HOST: langfuse-redis
@@ -285,20 +289,21 @@ services:
       LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
       LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_MINIO_ACCESS_KEY}
       LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_SECRET_KEY}
-      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://localhost:9090
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://langfuse-minio:9000
       LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
       LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
       REDIS_HOST: langfuse-redis
       REDIS_PORT: 6379
       REDIS_AUTH: ${LANGFUSE_REDIS_PASSWORD}
       REDIS_TLS_ENABLED: "false"
+      LANGFUSE_INIT_ORG_ID: "rag-org-id"
       LANGFUSE_INIT_ORG_NAME: "RAG Organization"
       LANGFUSE_INIT_PROJECT_NAME: "Agentic RAG"
       LANGFUSE_INIT_USER_EMAIL: "admin@example.com"
       LANGFUSE_INIT_USER_NAME: "Admin User"
       LANGFUSE_INIT_USER_PASSWORD: "admin123"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/public/health || exit 1"]
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/public/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -322,7 +327,7 @@ services:
     volumes:
       - langfuse_v3_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U langfuse -d langfuse"]
+      test: [ "CMD-SHELL", "pg_isready -U langfuse -d langfuse" ]
       interval: 3s
       timeout: 3s
       retries: 10
@@ -338,7 +343,7 @@ services:
     ports:
       - "6380:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "langfuse_redis_password", "ping"]
+      test: [ "CMD", "redis-cli", "-a", "langfuse_redis_password", "ping" ]
       interval: 3s
       timeout: 10s
       retries: 10
@@ -360,14 +365,13 @@ services:
     volumes:
       - langfuse_v3_minio_data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: [ "CMD", "mc", "ready", "local" ]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 5s
     networks:
       - rag-network
-
 
 volumes:
   postgres_data:
@@ -379,6 +383,7 @@ volumes:
   langfuse_v3_postgres_data:
   langfuse_v3_minio_data:
 
+
 networks:
   rag-network:
-    driver: bridge 
+    driver: bridge
